@@ -1,0 +1,31 @@
+name: Run CodeHealer Bot
+
+on:
+  workflow_dispatch: # Erlaubt dir, den Bot manuell über die "Actions"-Seite zu starten
+  schedule:
+    - cron: '0 * * * *' # Führt den Bot automatisch zu jeder vollen Stunde aus
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Dieser Schritt hilft bei der Fehlersuche, indem er den Code anzeigt
+      - name: Display Code for Debugging
+        run: cat bot.py
+
+      - name: Run Bot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python bot.py
+        
