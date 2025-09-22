@@ -1,16 +1,14 @@
 import os
 import time
 from github import Github, Auth
+from datetime import datetime, timedelta
 
 # ==============================================================================
 # KONFIGURATION
 # ==============================================================================
 
-# Holt den GitHub Token. Versucht zuerst den Standardnamen 'GITHUB_TOKEN',
-# dann als Fallback den Namen 'TOKEN', um Fehler zu vermeiden.
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN') or os.getenv('TOKEN')
 
-# Deine persönliche Spenden-Nachricht.
 SPENDEN_NACHRICHT = """
 *This pull request was generated automatically by the CodeHealer bot.*
 *My purpose is to help keep open-source projects secure by fixing known vulnerabilities.*
@@ -26,12 +24,16 @@ SPENDEN_NACHRICHT = """
 def finde_unsichere_projekte(github_client):
     """Sucht auf GitHub nach Python-Projekten, die potenziell unsicher sind."""
     print("INFO: Starte Suche nach verwundbaren Python-Projekten...")
-    # Schließt archivierte Projekte von vornherein aus, um Fehler zu vermeiden.
-    query = 'filename:requirements.txt language:python pushed:<2024-01-01 archived:false'
+    
+    # === DIE FINALE VERBESSERUNG: ZUFÄLLIGE, FRISCHE ERGEBNISSE ===
+    # Wir suchen nur nach Projekten, die in den letzten 24 Stunden aktualisiert wurden.
+    # Das garantiert, dass wir nicht immer am selben, alten Projekt scheitern.
+    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    query = f'filename:requirements.txt language:python pushed:>{yesterday} archived:false'
     
     try:
-        results = github_client.search_repositories(query=query)
-        print(f"INFO: {results.totalCount} aktive, potenzielle Projekte gefunden. Analysiere die ersten...")
+        results = github_client.search_repositories(query=query, sort='updated', order='desc')
+        print(f"INFO: {results.totalCount} aktive, kürzlich aktualisierte Projekte gefunden.")
         return results
     except Exception as e:
         print(f"FEHLER bei der Projektsuche: {e}")
@@ -41,7 +43,6 @@ def analysiere_projekt_und_erstelle_fix(repo):
     """
     Analysiert die Abhängigkeiten eines Projekts und generiert einen Fix.
     """
-    # Doppelte Absicherung: Überspringe archivierte Projekte.
     if repo.archived:
         print(f"INFO: Projekt '{repo.full_name}' ist archiviert. Überspringe.")
         return {"hat_luecke": False}
@@ -112,7 +113,6 @@ Dieser Pull Request aktualisiert die `requests`-Bibliothek auf eine sichere Vers
         print(f"ERFOLG: Pull Request erfolgreich erstellt! URL: {pr.html_url}")
         
     except Exception as e:
-        # Intelligente Fehlerbehandlung für gesperrte Projekte
         if "403 Forbidden" in str(e):
             print(f"WARNUNG: Projekt '{repo.full_name}' ist gesperrt (403 Forbidden). Ignoriere und mache weiter.")
         else:
@@ -159,4 +159,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-          
+    
